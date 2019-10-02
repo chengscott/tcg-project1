@@ -60,9 +60,17 @@ int main(int argc, const char *argv[]) {
 
     stat.open_episode(play.name() + ":" + evil.name());
     episode &game = stat.back();
+    for (size_t i = 0; i < 9; ++i) {
+      game.take_turns(play, evil);
+      game.apply_action(evil.init_action(i));
+    }
+    unsigned move_;
     while (true) {
+      // std::cout << game.step(-1) << "URDL"[move_] << game.state() <<
+      // std::endl;
       agent &who = game.take_turns(play, evil);
-      action move = who.take_action(game.state());
+      action move = who.take_action(game.state(), move_);
+      move_ = move.event() & 0b11;
       if (game.apply_action(move) != true)
         break;
       if (who.check_for_win(game.state()))

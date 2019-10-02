@@ -4,7 +4,7 @@
 #include <iostream>
 
 /**
- * array-based board for 2048
+ * array-based board for threes
  *
  * index (1-d form):
  *  (0)  (1)  (2)  (3)
@@ -57,7 +57,7 @@ public:
   reward place(unsigned pos, cell tile) {
     if (pos >= 16)
       return -1;
-    if (tile != 1 && tile != 2)
+    if (tile == 0 || tile > 3)
       return -1;
     operator()(pos) = tile;
     return 0;
@@ -85,29 +85,29 @@ public:
   reward slide_left() {
     board prev = *this;
     reward score = 0;
-    for (int r = 0; r < 4; r++) {
+    for (size_t r = 0; r < 4; ++r) {
       auto &row = tile[r];
-      int top = 0, hold = 0;
-      for (int c = 0; c < 4; c++) {
-        int tile = row[c];
-        if (tile == 0)
-          continue;
-        row[c] = 0;
-        if (hold) {
-          if (tile == hold) {
-            row[top++] = ++tile;
-            score += (1 << tile);
-            hold = 0;
-          } else {
-            row[top++] = hold;
-            hold = tile;
-          }
-        } else {
-          hold = tile;
+      size_t m = 4;
+      for (size_t c = 0; c < 3; ++c) {
+        size_t rc = row[c], rcn = row[c + 1];
+        if (rc == 0 && rcn != 0) {
+          m = c;
+          row[c] = rcn;
+          break;
+        } else if (rc <= 2 && rc + rcn == 3) {
+          m = c;
+          row[c] = 3;
+          score += 3;
+          break;
+        } else if (rc > 2 && rc == rcn) {
+          m = c;
+          row[c] = ++rc;
+          score += 3 * (1 << rc);
+          break;
         }
       }
-      if (hold)
-        tile[r][top] = hold;
+      for (size_t c = m + 1; c < 4; ++c)
+        row[c] = c == 3 ? 0 : row[c + 1];
     }
     return (*this != prev) ? score : -1;
   }
@@ -190,8 +190,9 @@ public:
     out << "+------------------------+" << std::endl;
     for (auto &row : b.tile) {
       out << "|" << std::dec;
-      for (auto t : row)
-        out << std::setw(6) << ((1 << t) & -2u);
+      for (auto t : row) {
+        out << std::setw(6) << (t <= 3 ? t : ((1 << (t - 1)) - (1 << (t - 3))));
+      }
       out << "|" << std::endl;
     }
     out << "+------------------------+" << std::endl;

@@ -21,7 +21,7 @@ public:
   virtual ~agent() {}
   virtual void open_episode(const std::string &flag = "") {}
   virtual void close_episode(const std::string &flag = "") {}
-  virtual action take_action(const board &b) { return action(); }
+  virtual action take_action(const board &b, unsigned) { return action(); }
   virtual bool check_for_win(const board &b) { return false; }
 
 public:
@@ -64,30 +64,60 @@ protected:
 /**
  * random environment
  * add a new random tile to an empty cell
- * 2-tile: 90%
- * 4-tile: 10%
  */
 class rndenv : public random_agent {
 public:
   rndenv(const std::string &args = "")
       : random_agent("name=random role=environment " + args),
-        space({0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15}),
-        popup(0, 9) {}
+        popup(), space{{12, 13, 14, 15},
+                       {0, 4, 8, 12},
+                       {0, 1, 2, 3},
+                       {3, 7, 11, 15}} {}
 
-  virtual action take_action(const board &after) {
-    std::shuffle(space.begin(), space.end(), engine);
-    for (int pos : space) {
+  action init_action(size_t step) {
+    static std::array<unsigned, 16> init_space{0, 1, 2,  3,  4,  5,  6,  7,
+                                               8, 9, 10, 11, 12, 13, 14, 15};
+    if (step == 0) {
+      popup.reset();
+      std::shuffle(init_space.begin(), init_space.end(), engine);
+    }
+    board::cell tile = popup(engine);
+    return action::place(init_space[step], tile);
+  }
+
+  virtual action take_action(const board &after, unsigned move_) {
+    auto &cur = space[move_];
+    std::shuffle(cur.begin(), cur.end(), engine);
+    for (int pos : cur) {
       if (after(pos) != 0)
         continue;
-      board::cell tile = popup(engine) ? 1 : 2;
+      board::cell tile = popup(engine);
       return action::place(pos, tile);
     }
     return action();
   }
 
 private:
-  std::array<int, 16> space;
-  std::uniform_int_distribution<int> popup;
+  template <class _IntType, size_t _Size> class bag_int_distribution {
+  public:
+    bag_int_distribution() { std::iota(std::begin(bag_), std::end(bag_), 1); }
+    void reset() { index_ = _Size; }
+    _IntType operator()(std::default_random_engine engine) {
+      if (index_ == _Size) {
+        std::shuffle(std::begin(bag_), std::end(bag_), engine);
+        index_ = 0;
+      }
+      return bag_[index_++];
+    }
+
+  private:
+    std::array<_IntType, _Size> bag_;
+    size_t index_ = _Size;
+  };
+
+private:
+  std::array<int, 4> space[4];
+  bag_int_distribution<board::cell, 3> popup;
 };
 
 /**
@@ -99,7 +129,7 @@ public:
   player(const std::string &args = "")
       : random_agent("name=dummy role=player " + args), opcode({0, 1, 2, 3}) {}
 
-  virtual action take_action(const board &before) {
+  virtual action take_action(const board &before, unsigned) {
     std::shuffle(opcode.begin(), opcode.end(), engine);
     for (int op : opcode) {
       board::reward reward = board(before).slide(op);

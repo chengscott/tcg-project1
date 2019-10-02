@@ -5,4 +5,4 @@ format:
 	clang-format -i *.cpp *.h
 
 clean:
-	rm threes
+	rm -rf threes agent board episode *.dSYM
