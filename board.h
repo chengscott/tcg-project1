@@ -9,6 +9,7 @@ public:
   using row_t = uint16_t;
   using tile_t = uint8_t;
   using reward_t = int;
+
   board(board_t rhs = 0u) : raw_(rhs) {}
   board(const board &) = default;
   board &operator=(const board &) = default;
@@ -23,7 +24,7 @@ public:
   const tile_t operator()(size_t i) const { return (raw_ >> (i << 2u)) & 0x0f; }
   void set(size_t i, tile_t e) {
     raw_ =
-        (raw_ & ~(0x0fULL << (i << 2u))) | (board_t(e & 0x0fULL) << (i << 2u));
+        (raw_ & ~(0x0full << (i << 2u))) | (board_t(e & 0x0full) << (i << 2u));
   }
 
   reward_t place(size_t pos, tile_t tile) {
@@ -165,8 +166,10 @@ private:
 
     static reward_t mv_left(row_t &row) {
       reward_t reward;
-      tile_t elem[4] = {(row >> 0u) & 0x0f, (row >> 4u) & 0x0f,
-                        (row >> 8u) & 0x0f, (row >> 12u) & 0x0f};
+      tile_t elem[4] = {static_cast<tile_t>((row >> 0u) & 0x0f),
+                        static_cast<tile_t>((row >> 4u) & 0x0f),
+                        static_cast<tile_t>((row >> 8u) & 0x0f),
+                        static_cast<tile_t>((row >> 12u) & 0x0f)};
       size_t m = 4;
       for (size_t c = 0; c < 3; ++c) {
         tile_t rc = elem[c], rcn = elem[c + 1];

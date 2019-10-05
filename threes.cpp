@@ -23,19 +23,19 @@ int main(int argc, const char *argv[]) {
   for (int i = 1; i < argc; i++) {
     std::string para(argv[i]);
     if (para.find("--total=") == 0) {
-      total = std::stoull(para.substr(para.find("=") + 1));
+      total = std::stoull(para.substr(para.find('=') + 1));
     } else if (para.find("--block=") == 0) {
-      block = std::stoull(para.substr(para.find("=") + 1));
+      block = std::stoull(para.substr(para.find('=') + 1));
     } else if (para.find("--limit=") == 0) {
-      limit = std::stoull(para.substr(para.find("=") + 1));
+      limit = std::stoull(para.substr(para.find('=') + 1));
     } else if (para.find("--play=") == 0) {
-      play_args = para.substr(para.find("=") + 1);
+      play_args = para.substr(para.find('=') + 1);
     } else if (para.find("--evil=") == 0) {
-      evil_args = para.substr(para.find("=") + 1);
+      evil_args = para.substr(para.find('=') + 1);
     } else if (para.find("--load=") == 0) {
-      load = para.substr(para.find("=") + 1);
+      load = para.substr(para.find('=') + 1);
     } else if (para.find("--save=") == 0) {
-      save = para.substr(para.find("=") + 1);
+      save = para.substr(para.find('=') + 1);
     } else if (para.find("--summary") == 0) {
       summary = true;
     }
@@ -44,7 +44,7 @@ int main(int argc, const char *argv[]) {
   statistic stat(total, block, limit);
 
   // load statistic
-  if (load.size()) {
+  if (!load.empty()) {
     std::ifstream in(load, std::ios::in);
     in >> stat;
     in.close();
@@ -71,10 +71,12 @@ int main(int argc, const char *argv[]) {
       agent &who = game.take_turns(play, evil);
       action move = who.take_action(game.state(), move_);
       move_ = move.event() & 0b11;
-      if (game.apply_action(move) != true)
+      if (!game.apply_action(move)) {
         break;
-      if (who.check_for_win(game.state()))
+      }
+      if (who.check_for_win(game.state())) {
         break;
+      }
     }
     agent &win = game.last_turns(play, evil);
     stat.close_episode(win.name());
@@ -89,7 +91,7 @@ int main(int argc, const char *argv[]) {
   }
 
   // save statistic
-  if (save.size()) {
+  if (!save.empty()) {
     std::ofstream out(save, std::ios::out | std::ios::trunc);
     out << stat;
     out.close();

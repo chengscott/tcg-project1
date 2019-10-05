@@ -1,4 +1,4 @@
-.PHONY: run judge format clean
+.PHONY: run judge format check clean
 all: threes
 
 threes:
@@ -12,6 +12,9 @@ judge: run
 
 format:
 	clang-format -i *.cpp *.h
+
+check:
+	clang-tidy threes.cpp -checks=bugprone-*,clang-analyzer-*,modernize-*,performance-*,readability-* -- -std=c++11
 
 clean:
 	rm -rf threes action agent board episode statistic *.dSYM
