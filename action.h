@@ -14,7 +14,7 @@ public:
   class place; // create a placing action with position and tile
 
 public:
-  virtual board::reward apply(board &b) const {
+  virtual board::reward_t apply(board &b) const {
     auto proto = entries().find(type());
     if (proto != entries().end())
       return proto->second->reinterpret(this).apply(b);
@@ -69,7 +69,7 @@ public:
   slide(const action &a = {}) : action(a) {}
 
 public:
-  board::reward apply(board &b) const { return b.slide(event()); }
+  board::reward_t apply(board &b) const { return b.slide(event()); }
   std::ostream &operator>>(std::ostream &out) const {
     return out << '#' << ("URDL")[event() & 0b11];
   }
@@ -107,7 +107,7 @@ public:
   unsigned tile() const { return event() >> 4; }
 
 public:
-  board::reward apply(board &b) const { return b.place(position(), tile()); }
+  board::reward_t apply(board &b) const { return b.place(position(), tile()); }
   std::ostream &operator>>(std::ostream &out) const {
     const char *idx = "0123456789ABCDEFGHIJKLMNOPQRSTUVWXYZ?";
     return out << idx[position()] << idx[std::min(tile(), 36u)];

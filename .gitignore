@@ -1,5 +1,11 @@
 .vscode
 *.dSYM
+threes
+action
+agent
+board
+episode
+statistic
 
 instruction.txt
 stat.txt

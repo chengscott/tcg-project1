@@ -81,7 +81,7 @@ public:
       popup.reset();
       std::shuffle(init_space.begin(), init_space.end(), engine);
     }
-    board::cell tile = popup(engine);
+    board::tile_t tile = popup(engine);
     return action::place(init_space[step], tile);
   }
 
@@ -91,7 +91,7 @@ public:
     for (int pos : cur) {
       if (after(pos) != 0)
         continue;
-      board::cell tile = popup(engine);
+      board::tile_t tile = popup(engine);
       return action::place(pos, tile);
     }
     return action();
@@ -117,7 +117,7 @@ private:
 
 private:
   std::array<int, 4> space[4];
-  bag_int_distribution<board::cell, 3> popup;
+  bag_int_distribution<board::tile_t, 3> popup;
 };
 
 /**
@@ -132,7 +132,7 @@ public:
   virtual action take_action(const board &before, unsigned) {
     std::shuffle(opcode.begin(), opcode.end(), engine);
     for (int op : opcode) {
-      board::reward reward = board(before).slide(op);
+      board::reward_t reward = board(before).slide(op);
       if (reward != -1)
         return action::slide(op);
     }

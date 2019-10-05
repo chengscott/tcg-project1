@@ -1,73 +1,49 @@
 #pragma once
-#include <array>
+#include <cassert>
 #include <iomanip>
 #include <iostream>
 
-/**
- * array-based board for threes
- *
- * index (1-d form):
- *  (0)  (1)  (2)  (3)
- *  (4)  (5)  (6)  (7)
- *  (8)  (9) (10) (11)
- * (12) (13) (14) (15)
- *
- */
 class board {
 public:
-  typedef uint32_t cell;
-  typedef std::array<cell, 4> row;
-  typedef std::array<row, 4> grid;
-  typedef uint64_t data;
-  typedef int reward;
+  using board_t = uint64_t;
+  using row_t = uint16_t;
+  using tile_t = uint8_t;
+  using reward_t = int;
+  board(board_t rhs = 0u) : raw_(rhs) {}
+  board(const board &) = default;
+  board &operator=(const board &) = default;
+  ~board() = default;
+  bool operator==(const board &rhs) const { return raw_ == rhs.raw_; }
+  bool operator!=(const board &rhs) const { return !(*this == rhs); }
 
 public:
-  board() : tile(), attr(0) {}
-  board(const grid &b, data v = 0) : tile(b), attr(v) {}
-  board(const board &b) = default;
-  board &operator=(const board &b) = default;
-
-  operator grid &() { return tile; }
-  operator const grid &() const { return tile; }
-  row &operator[](unsigned i) { return tile[i]; }
-  const row &operator[](unsigned i) const { return tile[i]; }
-  cell &operator()(unsigned i) { return tile[i / 4][i % 4]; }
-  const cell &operator()(unsigned i) const { return tile[i / 4][i % 4]; }
-
-  data info() const { return attr; }
-  data info(data dat) {
-    data old = attr;
-    attr = dat;
-    return old;
+  const row_t operator[](size_t i) const {
+    return (raw_ >> (i << 4u)) & 0xffff;
+  }
+  const tile_t operator()(size_t i) const { return (raw_ >> (i << 2u)) & 0x0f; }
+  void set(size_t i, tile_t e) {
+    raw_ =
+        (raw_ & ~(0x0fULL << (i << 2u))) | (board_t(e & 0x0fULL) << (i << 2u));
   }
 
-public:
-  bool operator==(const board &b) const { return tile == b.tile; }
-  bool operator<(const board &b) const { return tile < b.tile; }
-  bool operator!=(const board &b) const { return !(*this == b); }
-  bool operator>(const board &b) const { return b < *this; }
-  bool operator<=(const board &b) const { return !(b < *this); }
-  bool operator>=(const board &b) const { return !(*this < b); }
-
-public:
-  /**
-   * place a tile (index value) to the specific position (1-d form index)
-   * return 0 if the action is valid, or -1 if not
-   */
-  reward place(unsigned pos, cell tile) {
-    if (pos >= 16)
-      return -1;
-    if (tile == 0 || tile > 3)
-      return -1;
-    operator()(pos) = tile;
+  reward_t place(size_t pos, tile_t tile) {
+    assert(pos < 16 && tile > 0 && tile <= 3);
+    set(pos, tile);
     return 0;
   }
 
-  /**
-   * apply an action to the board
-   * return the reward of the action, or -1 if the action is illegal
-   */
-  reward slide(unsigned opcode) {
+  tile_t max_tile() const {
+    tile_t ret = 0;
+    for (size_t i = 0; i < 16; ++i) {
+      tile_t t = operator()(i);
+      if (t > ret)
+        ret = t;
+    }
+    return ret;
+  }
+
+public:
+  reward_t slide(unsigned opcode) {
     switch (opcode & 0b11) {
     case 0:
       return slide_up();
@@ -78,119 +54,161 @@ public:
     case 3:
       return slide_left();
     default:
-      return -1;
+      assert(false);
     }
+    return -1;
   }
 
-  reward slide_left() {
-    board prev = *this;
-    reward score = 0;
-    for (size_t r = 0; r < 4; ++r) {
-      auto &row = tile[r];
+private:
+  reward_t slide_left() {
+    board_t cur = 0u, prev = raw_;
+    reward_t score = 0;
+    score += lookup::find(operator[](0)).slide_left(cur, 0);
+    score += lookup::find(operator[](1)).slide_left(cur, 1);
+    score += lookup::find(operator[](2)).slide_left(cur, 2);
+    score += lookup::find(operator[](3)).slide_left(cur, 3);
+    raw_ = cur;
+    return (cur != prev) ? score : -1;
+  }
+  reward_t slide_right() {
+    mirror();
+    reward_t score = slide_left();
+    mirror();
+    return score;
+  }
+  reward_t slide_up() {
+    transpose();
+    reward_t score = slide_left();
+    mirror();
+    transpose();
+    flip();
+    return score;
+  }
+  reward_t slide_down() {
+    transpose();
+    mirror();
+    reward_t score = slide_left();
+    transpose();
+    flip();
+    return score;
+  }
+
+private:
+  /**
+   * swap row and column
+   * +------------------------+       +------------------------+
+   * |     2     8   128     4|       |     2     8     2     4|
+   * |     8    32    64   256|       |     8    32     4     2|
+   * |     2     4    32   128| ----> |   128    64    32     8|
+   * |     4     2     8    16|       |     4   256   128    16|
+   * +------------------------+       +------------------------+
+   */
+  void transpose() {
+    raw_ = (raw_ & 0xf0f00f0ff0f00f0full) |
+           ((raw_ & 0x0000f0f00000f0f0ull) << 12u) |
+           ((raw_ & 0x0f0f00000f0f0000ull) >> 12u);
+    raw_ = (raw_ & 0xff00ff0000ff00ffull) |
+           ((raw_ & 0x00000000ff00ff00ull) << 24u) |
+           ((raw_ & 0x00ff00ff00000000ull) >> 24u);
+  }
+
+  /**
+   * horizontal reflection
+   * +------------------------+       +------------------------+
+   * |     2     8   128     4|       |     4   128     8     2|
+   * |     8    32    64   256|       |   256    64    32     8|
+   * |     2     4    32   128| ----> |   128    32     4     2|
+   * |     4     2     8    16|       |    16     8     2     4|
+   * +------------------------+       +------------------------+
+   */
+  void mirror() {
+    raw_ = ((raw_ & 0x000f000f000f000full) << 12u) |
+           ((raw_ & 0x00f000f000f000f0ull) << 4u) |
+           ((raw_ & 0x0f000f000f000f00ull) >> 4u) |
+           ((raw_ & 0xf000f000f000f000ull) >> 12u);
+  }
+
+  /**
+   * vertical reflection
+   * +------------------------+       +------------------------+
+   * |     2     8   128     4|       |     4     2     8    16|
+   * |     8    32    64   256|       |     2     4    32   128|
+   * |     2     4    32   128| ----> |     8    32    64   256|
+   * |     4     2     8    16|       |     2     8   128     4|
+   * +------------------------+       +------------------------+
+   */
+  void flip() {
+    raw_ = ((raw_ & 0x000000000000ffffull) << 48u) |
+           ((raw_ & 0x00000000ffff0000ull) << 16u) |
+           ((raw_ & 0x0000ffff00000000ull) >> 16u) |
+           ((raw_ & 0xffff000000000000ull) >> 48u);
+  }
+
+private:
+  struct lookup {
+    using board_t = board::board_t;
+    using row_t = board::row_t;
+    using tile_t = board::tile_t;
+    using reward_t = board::reward_t;
+    lookup() {
+      static row_t cur = 0u;
+      raw = cur++;
+      // left
+      left = raw;
+      reward_left = mv_left(left);
+    }
+
+    static const lookup &find(size_t row) {
+      static const lookup cache[65536];
+      return cache[row];
+    }
+
+    static reward_t mv_left(row_t &row) {
+      reward_t reward;
+      tile_t elem[4] = {(row >> 0u) & 0x0f, (row >> 4u) & 0x0f,
+                        (row >> 8u) & 0x0f, (row >> 12u) & 0x0f};
       size_t m = 4;
       for (size_t c = 0; c < 3; ++c) {
-        size_t rc = row[c], rcn = row[c + 1];
-        if (rc == 0 && rcn != 0) {
+        tile_t rc = elem[c], rcn = elem[c + 1];
+        if (rc == 0u && rcn != 0u) {
           m = c;
-          row[c] = rcn;
+          elem[c] = rcn;
           break;
-        } else if (rc <= 2 && rc + rcn == 3) {
+        } else if (rc <= 2u && rc + rcn == 3u) {
           m = c;
-          row[c] = 3;
-          score += 3;
+          elem[c] = 3u;
+          reward += 3u;
           break;
-        } else if (rc > 2 && rc == rcn) {
+        } else if (rc > 2u && rc == rcn) {
           m = c;
-          row[c] = ++rc;
-          score += 3 * (1 << rc);
+          elem[c] = ++rc;
+          reward += 3u * (1 << rc);
           break;
         }
       }
       for (size_t c = m + 1; c < 4; ++c)
-        row[c] = c == 3 ? 0 : row[c + 1];
+        elem[c] = c == 3u ? 0u : elem[c + 1];
+      row = ((elem[0] << 0u) | (elem[1] << 4u) | (elem[2] << 8u) |
+             (elem[3] << 12u));
+      return reward;
     }
-    return (*this != prev) ? score : -1;
-  }
-  reward slide_right() {
-    reflect_horizontal();
-    reward score = slide_left();
-    reflect_horizontal();
-    return score;
-  }
-  reward slide_up() {
-    rotate_right();
-    reward score = slide_right();
-    rotate_left();
-    return score;
-  }
-  reward slide_down() {
-    rotate_right();
-    reward score = slide_left();
-    rotate_left();
-    return score;
-  }
 
-  void transpose() {
-    for (int r = 0; r < 4; r++) {
-      for (int c = r + 1; c < 4; c++) {
-        std::swap(tile[r][c], tile[c][r]);
-      }
+    reward_t slide_left(board_t &board, size_t i) const {
+      board |= board_t(left) << (i << 4);
+      return reward_left;
     }
-  }
 
-  void reflect_horizontal() {
-    for (int r = 0; r < 4; r++) {
-      std::swap(tile[r][0], tile[r][3]);
-      std::swap(tile[r][1], tile[r][2]);
-    }
-  }
-
-  void reflect_vertical() {
-    for (int c = 0; c < 4; c++) {
-      std::swap(tile[0][c], tile[3][c]);
-      std::swap(tile[1][c], tile[2][c]);
-    }
-  }
-
-  /**
-   * rotate the board clockwise by given times
-   */
-  void rotate(int r = 1) {
-    switch (((r % 4) + 4) % 4) {
-    default:
-    case 0:
-      break;
-    case 1:
-      rotate_right();
-      break;
-    case 2:
-      reverse();
-      break;
-    case 3:
-      rotate_left();
-      break;
-    }
-  }
-
-  void rotate_right() {
-    transpose();
-    reflect_horizontal();
-  } // clockwise
-  void rotate_left() {
-    transpose();
-    reflect_vertical();
-  } // counterclockwise
-  void reverse() {
-    reflect_horizontal();
-    reflect_vertical();
-  }
+    row_t raw, left;
+    reward_t reward_left;
+  };
 
 public:
   friend std::ostream &operator<<(std::ostream &out, const board &b) {
     out << "+------------------------+" << std::endl;
-    for (auto &row : b.tile) {
+    for (size_t i = 0; i < 4; ++i) {
       out << "|" << std::dec;
-      for (auto t : row) {
+      for (size_t j = 0; j < 4; ++j) {
+        const tile_t t = b(i * 4 + j);
         out << std::setw(6) << (t <= 3 ? t : ((1 << (t - 1)) - (1 << (t - 3))));
       }
       out << "|" << std::endl;
@@ -200,6 +218,5 @@ public:
   }
 
 private:
-  grid tile;
-  data attr;
+  board_t raw_;
 };

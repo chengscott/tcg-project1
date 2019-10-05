@@ -23,12 +23,12 @@ public:
 public:
   board &state() { return ep_state; }
   const board &state() const { return ep_state; }
-  board::reward score() const { return ep_score; }
+  board::reward_t score() const { return ep_score; }
 
   void open_episode(const std::string &tag) { ep_open = {tag, millisec()}; }
   void close_episode(const std::string &tag) { ep_close = {tag, millisec()}; }
   bool apply_action(action move) {
-    board::reward reward = move.apply(state());
+    board::reward_t reward = move.apply(state());
     if (reward == -1)
       return false;
     ep_moves.emplace_back(move, reward, millisec() - ep_time);
@@ -119,9 +119,9 @@ public:
 protected:
   struct move {
     action code;
-    board::reward reward;
+    board::reward_t reward;
     time_t time;
-    move(action code = {}, board::reward reward = 0, time_t time = 0)
+    move(action code = {}, board::reward_t reward = 0, time_t time = 0)
         : code(code), reward(reward), time(time) {}
 
     operator action() const { return code; }
@@ -173,7 +173,7 @@ protected:
 
 private:
   board ep_state;
-  board::reward ep_score;
+  board::reward_t ep_score;
   std::vector<move> ep_moves;
   time_t ep_time;
 
