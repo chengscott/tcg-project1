@@ -18,10 +18,8 @@ public:
   bool operator!=(const board &rhs) const { return !(*this == rhs); }
 
 public:
-  const row_t operator[](size_t i) const {
-    return (raw_ >> (i << 4u)) & 0xffff;
-  }
-  const tile_t operator()(size_t i) const { return (raw_ >> (i << 2u)) & 0x0f; }
+  row_t operator[](size_t i) const { return (raw_ >> (i << 4u)) & 0xffff; }
+  tile_t operator()(size_t i) const { return (raw_ >> (i << 2u)) & 0x0f; }
   void set(size_t i, tile_t e) {
     raw_ =
         (raw_ & ~(0x0full << (i << 2u))) | (board_t(e & 0x0full) << (i << 2u));
@@ -54,8 +52,7 @@ public:
       return slide_down();
     case 3:
       return slide_left();
-    default:
-      assert(false);
+    default:;
     }
     return -1;
   }
@@ -165,7 +162,7 @@ private:
     }
 
     static reward_t mv_left(row_t &row) {
-      reward_t reward;
+      reward_t reward = 0u;
       tile_t elem[4] = {static_cast<tile_t>((row >> 0u) & 0x0f),
                         static_cast<tile_t>((row >> 4u) & 0x0f),
                         static_cast<tile_t>((row >> 8u) & 0x0f),
@@ -180,12 +177,12 @@ private:
         } else if (rc <= 2u && rc + rcn == 3u) {
           m = c;
           elem[c] = 3u;
-          reward += 3u;
+          reward = 3u;
           break;
         } else if (rc > 2u && rc == rcn) {
           m = c;
           elem[c] = ++rc;
-          reward += 3u * (1 << rc);
+          reward = 3u * (1 << (rc - 3));
           break;
         }
       }
