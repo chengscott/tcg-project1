@@ -2,6 +2,7 @@
 #include "action.h"
 #include "board.h"
 #include <algorithm>
+#include <array>
 #include <map>
 #include <random>
 #include <sstream>
